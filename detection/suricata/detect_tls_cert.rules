@@ -1,0 +1,50 @@
+# xReflect Proxy — TLS Certificate Detection Rules
+#
+# The implant's HTTPS proxy component ("xReflect") uses a self-signed TLS
+# certificate that impersonates DigiCert but contains two distinctive typos:
+#   - "San Diago" (correct: "San Diego")
+#   - "digi-cert.com" (correct: "digicert.com")
+#
+# These rules detect the fraudulent certificate in TLS handshakes.
+
+# Rule 1: Combined issuer typos (high confidence)
+alert tls $HOME_NET any -> $EXTERNAL_NET any ( \
+    msg:"xReflect - Fake DigiCert (issuer)"; \
+    tls.cert_issuer; content:"San Diago"; nocase; \
+    tls.cert_issuer; content:"digi-cert.com"; nocase; \
+    classtype:trojan-activity; \
+    sid:2025100; rev:1; \
+)
+
+# Rule 2: Subject match (self-signed certificate)
+alert tls $HOME_NET any -> $EXTERNAL_NET any ( \
+    msg:"xReflect - Fake DigiCert (subject)"; \
+    tls.cert_subject; content:"San Diago"; nocase; \
+    tls.cert_subject; content:"digi-cert.com"; nocase; \
+    classtype:trojan-activity; \
+    sid:2025101; rev:1; \
+)
+
+# Rule 3: Exact certificate serial number
+alert tls $HOME_NET any -> $EXTERNAL_NET any ( \
+    msg:"xReflect - Cert serial match"; \
+    tls_cert_serial; content:"0ee703e0fe46d77f22e158184e3ff6123f7750d9"; \
+    classtype:trojan-activity; \
+    sid:2025102; rev:1; \
+)
+
+# Rule 4a: Single typo — "San Diago" in issuer
+alert tls any any -> $EXTERNAL_NET any ( \
+    msg:"xReflect - Misspelled DigiCert (San Diago)"; \
+    tls.cert_issuer; content:"San Diago"; nocase; \
+    classtype:bad-unknown; \
+    sid:2025103; rev:1; \
+)
+
+# Rule 4b: Single typo — "digi-cert.com" in issuer
+alert tls any any -> $EXTERNAL_NET any ( \
+    msg:"xReflect - Fake domain (digi-cert.com)"; \
+    tls.cert_issuer; content:"digi-cert.com"; \
+    classtype:bad-unknown; \
+    sid:2025104; rev:1; \
+)
